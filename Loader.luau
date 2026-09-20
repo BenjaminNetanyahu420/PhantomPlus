@@ -1,16 +1,11 @@
 --[[
-    ███████████  █████                            █████                             █████   ███   █████
-    ▒▒███▒▒▒▒▒███▒▒███                            ▒▒███                             ▒▒███   ▒███  ▒▒███
-    ▒███    ▒███ ▒███████    ██████   ████████   ███████    ██████  █████████████   ▒███   ▒███   ▒███   ██████   ████████   ██████
-    ▒██████████  ▒███▒▒███  ▒▒▒▒▒███ ▒▒███▒▒███ ▒▒▒███▒    ███▒▒███▒▒███▒▒███▒▒███  ▒███   ▒███   ▒███  ▒▒▒▒▒███ ▒▒███▒▒███ ███▒▒███
-    ▒███▒▒▒▒▒▒   ▒███ ▒███   ███████  ▒███ ▒███   ▒███    ▒███ ▒███ ▒███ ▒███ ▒███  ▒▒███  █████  ███    ███████  ▒███ ▒▒▒ ▒███████
-    ▒███         ▒███ ▒███  ███▒▒███  ▒███ ▒███   ▒███ ███▒███ ▒███ ▒███ ▒███ ▒███   ▒▒▒█████▒█████▒    ███▒▒███  ▒███     ▒███▒▒▒
-    █████        ████ █████▒▒████████ ████ █████  ▒▒█████ ▒▒██████  █████▒███ █████    ▒▒███ ▒▒███     ▒▒████████ █████    ▒▒██████
-    ▒▒▒▒▒        ▒▒▒▒ ▒▒▒▒▒  ▒▒▒▒▒▒▒▒ ▒▒▒▒ ▒▒▒▒▒    ▒▒▒▒▒   ▒▒▒▒▒▒  ▒▒▒▒▒ ▒▒▒ ▒▒▒▒▒      ▒▒▒   ▒▒▒       ▒▒▒▒▒▒▒▒ ▒▒▒▒▒      ▒▒▒▒▒▒
-
-    -- Made by Nikoleto Scripts, if you encounter issues, open a ticket in the Discord server.
-    GitHub: https://github.com/nikoladhima
-    Discord: https://discord.gg/DwRT2nH93D / @nikoleto._
+    ██████╗ ██╗  ██╗ █████╗ ███╗   ██╗████████╗ ██████╗ ███╗   ███╗    ██╗
+    ██╔══██╗██║  ██║██╔══██╗████╗  ██║╚══██╔══╝██╔═══██╗████╗ ████║   ██╔╝
+    ██████╔╝███████║███████║██╔██╗ ██║   ██║   ██║   ██║██╔████╔██║  ██╔╝
+    ██╔═══╝ ██╔══██║██╔══██║██║╚██╗██║   ██║   ██║   ██║██║╚██╔╝██║ ██╔╝
+    ██║     ██║  ██║██║  ██║██║ ╚████║   ██║   ╚██████╔╝██║ ╚═╝ ██║██╔╝
+    ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝   ╚═╝    ╚═════╝ ╚═╝     ╚═╝╚═╝
+    Phantom+ | github.com/430L/PhantomPlus
 ]]
 
 repeat task.wait(0.25) until game:IsLoaded()
@@ -28,8 +23,8 @@ for Reason, Value in {["Missing function getgenv"] = getgenv, ["Missing file fun
     end
 end
 
-local Base = "NikoletoScripts/PhantomWare/"
-for _,Path in {"NikoletoScripts", "NikoletoScripts/PhantomWare", Base .. "Sounds", Base .. "Configs", Base .. "Cache", Base .. "Logs"} do
+local Base = "PhantomPlus/"
+for _,Path in {"PhantomPlus", Base .. "Sounds", Base .. "Configs", Base .. "Cache", Base .. "Logs"} do
 	pcall(function()
         if not isfolder(Path) then
             makefolder(Path)
@@ -45,7 +40,7 @@ if RunOnActor then
     end, function()
         return Actors and Actors[1]
     end, function (Actor)
-        return RunOnActor(Actor, [[loadstring(game:HttpGet("https://raw.githubusercontent.com/nikoladhima/PhantomWare/refs/heads/main/core/Main.luau"))()]])
+        return RunOnActor(Actor, [[loadstring(game:HttpGet("https://raw.githubusercontent.com/430L/PhantomPlus/refs/heads/main/core/Main.luau"))()]])
     end
 
     local GetDeletedActors = getdeletedactors or get_deleted_actors
@@ -86,7 +81,7 @@ if not Success then
 end
 
 if tostring(DebugRunParallelLuaOnMainThread):lower() == "true" then
-    return loadstring(game:HttpGet("https://raw.githubusercontent.com/nikoladhima/PhantomWare/refs/heads/main/core/Main.luau"))()
+    return loadstring(game:HttpGet("https://raw.githubusercontent.com/430L/PhantomPlus/refs/heads/main/core/Main.luau"))()
 end
 
 Setfflag("DebugRunParallelLuaOnMainThread", "True")
@@ -104,10 +99,10 @@ if QueueOnTeleport then
         end
 
         if tostring(DebugRunParallelLuaOnMainThread):lower() == "true" then
-            return loadstring(game:HttpGet("https://raw.githubusercontent.com/nikoladhima/PhantomWare/refs/heads/main/core/Main.luau"))()
+            return loadstring(game:HttpGet("https://raw.githubusercontent.com/430L/PhantomPlus/refs/heads/main/core/Main.luau"))()
         end
 
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/nikoladhima/PhantomWare/refs/heads/main/Loader.luau"))()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/430L/PhantomPlus/refs/heads/main/Loader.luau"))()
     ]])
 end
 
@@ -124,6 +119,5 @@ task.delay(0.465, function()
         task.wait(0.5)
     end
 
-    LocalPlayer:Kick("Failed to teleport, follow these steps to manually fix the issue:\n1. Click the Leave button which will take you to the Desktop App.\n2. Join Phantom Forces again while you are still inside the Desktop App.\n3. Wait until you load and execute PhantomWare again.\nNote: If this issue persists, please open a ticket in the Discord server.\ndiscord.gg/DwRT2nH93D")
-    pcall(setclipboard, "discord.gg/DwRT2nH93D")
+    LocalPlayer:Kick("Failed to teleport, follow these steps to manually fix the issue:\n1. Click the Leave button which will take you to the Desktop App.\n2. Join Phantom Forces again while you are still inside the Desktop App.\n3. Wait until you load and execute Phantom+ again.")
 end)

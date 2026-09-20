@@ -41,9 +41,9 @@ if typeof(ns__require) ~= "function" then
 	end
 
 	if not ModuleCache  then
-		getgenv().ns__PhantomWare__Executed = false
+		getgenv().ns__PhantomPlus__Executed = false
 		pcall(setfflag or set_fflag, "DebugRunParallelLuaOnMainThread", "True")
-		LocalPlayer:Kick("Error while accessing Game Modules, try rejoining through the desktop app, if this issue persists, please make a ticket in the discord server immediately.\ndiscord.gg/DwRT2nH93D" .. (ExecutorName and (" | " .. ExecutorName) or ""))
+		LocalPlayer:Kick("Error while accessing Game Modules, try rejoining through the desktop app." .. (ExecutorName and (" | " .. ExecutorName) or ""))
 		return nil
 	end
 
@@ -53,9 +53,9 @@ if typeof(ns__require) ~= "function" then
 
 	Method = "fenv.getgc"
 elseif not ns__require then
-	getgenv().ns__PhantomWare__Executed = false
+	getgenv().ns__PhantomPlus__Executed = false
 	pcall(setfflag or set_fflag, "DebugRunParallelLuaOnMainThread", "True")
-	LocalPlayer:Kick("Error while accessing Game Modules, try rejoining through the desktop app, if this issue persists, please make a ticket in the discord server immediately.\ndiscord.gg/DwRT2nH93D" .. (ExecutorName and (" | " .. ExecutorName) or ""))
+	LocalPlayer:Kick("Error while accessing Game Modules, try rejoining through the desktop app." .. (ExecutorName and (" | " .. ExecutorName) or ""))
 	return nil
 end
 
@@ -70,7 +70,7 @@ return {Players = Players, LocalPlayer = LocalPlayer, Method = Method, ExecutorN
 			return
 		end
 
-		return LocalPlayer:Kick("Failed to require Module '" .. Module .. " ', error[" .. Result .. "]\nPlease make a ticket in the discord server immediately.\ndiscord.gg/DwRT2nH93D")
+		return LocalPlayer:Kick("Failed to require Module '" .. Module .. "', error[" .. Result .. "]")
 	end
 
 	local Source = __internal()
@@ -78,8 +78,7 @@ return {Players = Players, LocalPlayer = LocalPlayer, Method = Method, ExecutorN
 		local StartTime = os.clock()
 		while true do
 			if os.clock() - StartTime >= 5 then
-				LocalPlayer:Kick("Module Access Timeout, please make a ticket in the discord server immediately.\ndiscord.gg/DwRT2nH93D\nDebug Info: " .. tostring(ExecutorName) .. " | " .. Module .. ": " .. (ModuleCache and "fenv.getgc" or "shared.require"))
-				pcall(setclipboard, "discord.gg/DwRT2nH93D")
+				LocalPlayer:Kick("Module Access Timeout.\nDebug Info: " .. tostring(ExecutorName) .. " | " .. Module .. ": " .. (ModuleCache and "fenv.getgc" or "shared.require"))
 				break
 			end
 

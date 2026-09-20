@@ -1,16 +1,19 @@
-## PhantomWare
+## Phantom+
 
-> [!IMPORTANT]
-> If you encounter bugs or need support, join the Discord server: https://discord.gg/DwRT2nH93D
+Phantom Forces exploit script — optimized v2 rewrite.
 
-## ⚙️ Features:
-- RageBot & Aimbot 🎮
-- Visuals 👁️
-- Mods 🌐
-- AND MANY MORE FEATURES.
+## Features
+- RageBot & Aimbot (Hold/Toggle/Always keybind modes)
+- Full ESP suite (Chams, Boxes, Skeletons, Tags, Tracers, Healthbars)
+- Silent Aim with ballistic prediction
+- Anti-Aim, Third Person, Viewmodel mods
+- Movement (Fly, Speed, Bunny Hop)
+- Weapon mods (No Recoil, No Spread, Auto, Instant Reload)
+- Grenade trajectory preview
+- Knife Aura
+- And more
 
-## 🔌Shortened Script
+## Script
 ```lua
-loadstring(game:HttpGet("https://raw.githubusercontent.com/nikoladhima/PhantomWare/main/Loader.luau"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/430L/PhantomPlus/main/Loader.luau"))()
 ```
-<br/>
