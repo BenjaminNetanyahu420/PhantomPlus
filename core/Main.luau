@@ -396,24 +396,9 @@ local function GetCharacterRaw(Entry)
 	end
 end
 
--- Per-frame character cache: avoids redundant traversals across 5-6 OperateOnAllEntries calls/frame
-local CharacterCacheFrame = 0
-local CharacterCacheData = {}
-
-local function GetCharacter(Entry)
-	local FrameId = CanSeeFrameCounter
-	if CharacterCacheFrame ~= FrameId then
-		CharacterCacheFrame = FrameId
-		table.clear(CharacterCacheData)
-	end
-	local Cached = CharacterCacheData[Entry]
-	if Cached ~= nil then
-		return Cached ~= false and Cached or nil
-	end
-	local Result = GetCharacterRaw(Entry)
-	CharacterCacheData[Entry] = Result or false
-	return Result
-end
+-- Direct wrapper (cache removed: CanSeeFrameCounter is declared later in the file,
+-- so a cache keyed on it would capture the global nil, never invalidating properly)
+local GetCharacter = GetCharacterRaw
 
 local NetworkClientSend = NetworkClient.send
 local GetLocalCharacter = CharacterInterface.getCharacterObject
@@ -3243,26 +3228,76 @@ function ESPModule:Update(LocalHeadPosition)
 			local pRF, onRF = WorldToViewportPoint(wRF)
 
 			-- Draw bones using pre-projected screen positions
-			if onNeck and onHead then SetProperty(SkeletonHead, "From", pNeck) SetProperty(SkeletonHead, "To", pHead) SetProperty(SkeletonHead, "Visible", true)
-			else SetProperty(SkeletonHead, "Visible", false) end
-			if onNeck and onLower then SetProperty(SkeletonSpine, "From", pNeck) SetProperty(SkeletonSpine, "To", pLower) SetProperty(SkeletonSpine, "Visible", true)
-			else SetProperty(SkeletonSpine, "Visible", false) end
-			if onNeck and onLS then SetProperty(SkeletonLeftShoulder, "From", pNeck) SetProperty(SkeletonLeftShoulder, "To", pLS) SetProperty(SkeletonLeftShoulder, "Visible", true)
-			else SetProperty(SkeletonLeftShoulder, "Visible", false) end
-			if onNeck and onRS then SetProperty(SkeletonRightShoulder, "From", pNeck) SetProperty(SkeletonRightShoulder, "To", pRS) SetProperty(SkeletonRightShoulder, "Visible", true)
-			else SetProperty(SkeletonRightShoulder, "Visible", false) end
-			if onLS and onLE then SetProperty(SkeletonLeftArm, "From", pLS) SetProperty(SkeletonLeftArm, "To", pLE) SetProperty(SkeletonLeftArm, "Visible", true)
-			else SetProperty(SkeletonLeftArm, "Visible", false) end
-			if onRS and onRE then SetProperty(SkeletonRightArm, "From", pRS) SetProperty(SkeletonRightArm, "To", pRE) SetProperty(SkeletonRightArm, "Visible", true)
-			else SetProperty(SkeletonRightArm, "Visible", false) end
-			if onLower and onLH then SetProperty(SkeletonLeftHip, "From", pLower) SetProperty(SkeletonLeftHip, "To", pLH) SetProperty(SkeletonLeftHip, "Visible", true)
-			else SetProperty(SkeletonLeftHip, "Visible", false) end
-			if onLower and onRH then SetProperty(SkeletonRightHip, "From", pLower) SetProperty(SkeletonRightHip, "To", pRH) SetProperty(SkeletonRightHip, "Visible", true)
-			else SetProperty(SkeletonRightHip, "Visible", false) end
-			if onLH and onLF then SetProperty(SkeletonLeftLeg, "From", pLH) SetProperty(SkeletonLeftLeg, "To", pLF) SetProperty(SkeletonLeftLeg, "Visible", true)
-			else SetProperty(SkeletonLeftLeg, "Visible", false) end
-			if onRH and onRF then SetProperty(SkeletonRightLeg, "From", pRH) SetProperty(SkeletonRightLeg, "To", pRF) SetProperty(SkeletonRightLeg, "Visible", true)
-			else SetProperty(SkeletonRightLeg, "Visible", false) end
+			if onNeck and onHead then
+				SetProperty(SkeletonHead, "From", pNeck)
+				SetProperty(SkeletonHead, "To", pHead)
+				SetProperty(SkeletonHead, "Visible", true)
+			else
+				SetProperty(SkeletonHead, "Visible", false)
+			end
+			if onNeck and onLower then
+				SetProperty(SkeletonSpine, "From", pNeck)
+				SetProperty(SkeletonSpine, "To", pLower)
+				SetProperty(SkeletonSpine, "Visible", true)
+			else
+				SetProperty(SkeletonSpine, "Visible", false)
+			end
+			if onNeck and onLS then
+				SetProperty(SkeletonLeftShoulder, "From", pNeck)
+				SetProperty(SkeletonLeftShoulder, "To", pLS)
+				SetProperty(SkeletonLeftShoulder, "Visible", true)
+			else
+				SetProperty(SkeletonLeftShoulder, "Visible", false)
+			end
+			if onNeck and onRS then
+				SetProperty(SkeletonRightShoulder, "From", pNeck)
+				SetProperty(SkeletonRightShoulder, "To", pRS)
+				SetProperty(SkeletonRightShoulder, "Visible", true)
+			else
+				SetProperty(SkeletonRightShoulder, "Visible", false)
+			end
+			if onLS and onLE then
+				SetProperty(SkeletonLeftArm, "From", pLS)
+				SetProperty(SkeletonLeftArm, "To", pLE)
+				SetProperty(SkeletonLeftArm, "Visible", true)
+			else
+				SetProperty(SkeletonLeftArm, "Visible", false)
+			end
+			if onRS and onRE then
+				SetProperty(SkeletonRightArm, "From", pRS)
+				SetProperty(SkeletonRightArm, "To", pRE)
+				SetProperty(SkeletonRightArm, "Visible", true)
+			else
+				SetProperty(SkeletonRightArm, "Visible", false)
+			end
+			if onLower and onLH then
+				SetProperty(SkeletonLeftHip, "From", pLower)
+				SetProperty(SkeletonLeftHip, "To", pLH)
+				SetProperty(SkeletonLeftHip, "Visible", true)
+			else
+				SetProperty(SkeletonLeftHip, "Visible", false)
+			end
+			if onLower and onRH then
+				SetProperty(SkeletonRightHip, "From", pLower)
+				SetProperty(SkeletonRightHip, "To", pRH)
+				SetProperty(SkeletonRightHip, "Visible", true)
+			else
+				SetProperty(SkeletonRightHip, "Visible", false)
+			end
+			if onLH and onLF then
+				SetProperty(SkeletonLeftLeg, "From", pLH)
+				SetProperty(SkeletonLeftLeg, "To", pLF)
+				SetProperty(SkeletonLeftLeg, "Visible", true)
+			else
+				SetProperty(SkeletonLeftLeg, "Visible", false)
+			end
+			if onRH and onRF then
+				SetProperty(SkeletonRightLeg, "From", pRH)
+				SetProperty(SkeletonRightLeg, "To", pRF)
+				SetProperty(SkeletonRightLeg, "Visible", true)
+			else
+				SetProperty(SkeletonRightLeg, "Visible", false)
+			end
 		else
 			SetProperty(SkeletonHead, "Visible", false)
 			SetProperty(SkeletonSpine, "Visible", false)
