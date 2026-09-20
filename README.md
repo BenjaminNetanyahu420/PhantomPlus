@@ -15,5 +15,5 @@ Phantom Forces exploit script — optimized v2 rewrite.
 
 ## Script
 ```lua
-loadstring(game:HttpGet("https://raw.githubusercontent.com/430L/PhantomPlus/main/Loader.luau"))()
+loadstring(game:HttpGet("https://raw.githubusercontent.com/BenjaminNetanyahu420/PhantomPlus/main/Loader.luau"))()
 ```

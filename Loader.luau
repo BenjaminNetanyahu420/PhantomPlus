@@ -5,7 +5,7 @@
     ██╔═══╝ ██╔══██║██╔══██║██║╚██╗██║   ██║   ██║   ██║██║╚██╔╝██║ ██╔╝
     ██║     ██║  ██║██║  ██║██║ ╚████║   ██║   ╚██████╔╝██║ ╚═╝ ██║██╔╝
     ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═══╝   ╚═╝    ╚═════╝ ╚═╝     ╚═╝╚═╝
-    Phantom+ | github.com/430L/PhantomPlus
+    Phantom+ | github.com/BenjaminNetanyahu420/PhantomPlus
 ]]
 
 repeat task.wait(0.25) until game:IsLoaded()
@@ -40,7 +40,7 @@ if RunOnActor then
     end, function()
         return Actors and Actors[1]
     end, function (Actor)
-        return RunOnActor(Actor, [[loadstring(game:HttpGet("https://raw.githubusercontent.com/430L/PhantomPlus/refs/heads/main/core/Main.luau"))()]])
+        return RunOnActor(Actor, [[loadstring(game:HttpGet("https://raw.githubusercontent.com/BenjaminNetanyahu420/PhantomPlus/refs/heads/main/core/Main.luau"))()]])
     end
 
     local GetDeletedActors = getdeletedactors or get_deleted_actors
@@ -81,7 +81,7 @@ if not Success then
 end
 
 if tostring(DebugRunParallelLuaOnMainThread):lower() == "true" then
-    return loadstring(game:HttpGet("https://raw.githubusercontent.com/430L/PhantomPlus/refs/heads/main/core/Main.luau"))()
+    return loadstring(game:HttpGet("https://raw.githubusercontent.com/BenjaminNetanyahu420/PhantomPlus/refs/heads/main/core/Main.luau"))()
 end
 
 Setfflag("DebugRunParallelLuaOnMainThread", "True")
@@ -99,10 +99,10 @@ if QueueOnTeleport then
         end
 
         if tostring(DebugRunParallelLuaOnMainThread):lower() == "true" then
-            return loadstring(game:HttpGet("https://raw.githubusercontent.com/430L/PhantomPlus/refs/heads/main/core/Main.luau"))()
+            return loadstring(game:HttpGet("https://raw.githubusercontent.com/BenjaminNetanyahu420/PhantomPlus/refs/heads/main/core/Main.luau"))()
         end
 
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/430L/PhantomPlus/refs/heads/main/Loader.luau"))()
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/BenjaminNetanyahu420/PhantomPlus/refs/heads/main/Loader.luau"))()
     ]])
 end
 
