@@ -1,11 +1,11 @@
-if getgenv().ns__PhantomWare__Executed then
+if getgenv().ns__PhantomPlus__Executed then
 	return
 end
 
-getgenv().ns__PhantomWare__Executed = true
+getgenv().ns__PhantomPlus__Executed = true
 pcall(clearteleportqueue or clear_teleport_queue or clearqueueonteleport)
 
-local Module = loadstring(game:HttpGet("https://raw.githubusercontent.com/nikoladhima/PhantomWare/refs/heads/main/core/Module.luau"))()
+local Module = loadstring(game:HttpGet("https://raw.githubusercontent.com/430L/PhantomPlus/refs/heads/main/core/Module.luau"))()
 
 local clonerefFunction = cloneref or clone_ref or clonereference or clone_reference
 local ns__cloneref = function(Object)
@@ -101,7 +101,6 @@ end
 
 local AimbotTarget = nil
 local AimbotTargetPart = nil
-local IsAimbotInputActive = false
 local IsAimbotLocking = false
 local IsAimbotTargetVisible = false
 
@@ -388,13 +387,32 @@ local MuzzleFlash = Effects.muzzleflash
 local FireImpulse = Module.__get("HudCrosshairsInterface").fireImpulse
 local GetGameClockTime = Module.__get("GameClock").getTime
 
-local function GetCharacter(Entry)
+local function GetCharacterRaw(Entry)
 	local ThirdPersonObject = Entry._thirdPersonObject
 	local Character = ThirdPersonObject and ThirdPersonObject._characterModelHash
 	local Head = Character and Character.Head
 	if Head and Head.Parent then
 		return Character
 	end
+end
+
+-- Per-frame character cache: avoids redundant traversals across 5-6 OperateOnAllEntries calls/frame
+local CharacterCacheFrame = 0
+local CharacterCacheData = {}
+
+local function GetCharacter(Entry)
+	local FrameId = CanSeeFrameCounter
+	if CharacterCacheFrame ~= FrameId then
+		CharacterCacheFrame = FrameId
+		table.clear(CharacterCacheData)
+	end
+	local Cached = CharacterCacheData[Entry]
+	if Cached ~= nil then
+		return Cached ~= false and Cached or nil
+	end
+	local Result = GetCharacterRaw(Entry)
+	CharacterCacheData[Entry] = Result or false
+	return Result
 end
 
 local NetworkClientSend = NetworkClient.send
@@ -627,14 +645,18 @@ local function TransparentRaycast(Origin, Direction, BaseFilter)
 	for Index = 1, BaseCount do
 		TransparentRaycastExcluded[Index] = BaseList[Index]
 	end
+	local ExcludedCount = BaseCount
 
-	local ExcludedCount, RemainingDirection, RemainingOrigin = BaseCount, Direction, Origin
+	-- Trim stale entries from previous calls
+	for Index = ExcludedCount + 1, #TransparentRaycastExcluded do
+		TransparentRaycastExcluded[Index] = nil
+	end
+
+	-- Set filter ONCE before the loop instead of every iteration
+	TransparentRaycastParams.FilterDescendantsInstances = TransparentRaycastExcluded
+
+	local RemainingDirection, RemainingOrigin = Direction, Origin
 	for _ = 1, 8 do
-		for Index = ExcludedCount + 1, #TransparentRaycastExcluded do
-			TransparentRaycastExcluded[Index] = nil
-		end
-
-		TransparentRaycastParams.FilterDescendantsInstances = TransparentRaycastExcluded
 		local Result = workspace:Raycast(RemainingOrigin, RemainingDirection, TransparentRaycastParams)
 		if not Result then
 			return
@@ -644,6 +666,8 @@ local function TransparentRaycast(Origin, Direction, BaseFilter)
 		if Hit.Transparency > 0.9 then
 			ExcludedCount += 1
 			TransparentRaycastExcluded[ExcludedCount] = Hit
+			-- Re-set only when filter list actually changed
+			TransparentRaycastParams.FilterDescendantsInstances = TransparentRaycastExcluded
 			local FixedDirection = Direction.Unit * 0.01
 			RemainingDirection = RemainingDirection - (Result.Position - RemainingOrigin) - FixedDirection
 			RemainingOrigin = Result.Position + FixedDirection
@@ -704,13 +728,12 @@ local function GetCanSeeCache(Result, Layers)
 	return {Result, CanSeeFrameCounter, Layers}
 end
 
-local function CanSee(Part)
+local function CanSee(Part, Origin)
 	local Layers, Entry = Settings.Advanced_MultiPointLayers, CanSeeCache[Part]
 	if Entry and Entry[2] == CanSeeFrameCounter and Entry[3] == Layers then
 		return Entry[1]
 	end
 
-	local Origin = GetLocalPosition()
 	local Position = Part.Position
 	local Delta = Position - Origin
 
@@ -991,7 +1014,7 @@ function RageBotModule:GetHitPartName(Character, HitPart)
 	) or (HitPart == Character["Right Leg"] and "Right Leg") or "Head"
 end
 
-local function GetTargetPart(Character, AimbotPart, IsWallCheckOff)
+local function GetTargetPart(Character, AimbotPart, IsWallCheckOff, Origin)
 	local Head, Torso, LeftArm, RightArm, LeftLeg, RightLeg = Character.Head, Character.Torso, Character["Left Arm"], Character["Right Arm"], Character["Left Leg"], Character["Right Leg"]
 	if AimbotPart == "Head" then
 		if not Head then
@@ -1003,7 +1026,7 @@ local function GetTargetPart(Character, AimbotPart, IsWallCheckOff)
 			return nil, nil, false
 		end
 
-		local Status = CanSee(Head)
+		local Status = CanSee(Head, Origin)
 		if IsWallCheckOff or Status then
 			return Head, Screen, Status
 		end
@@ -1019,7 +1042,7 @@ local function GetTargetPart(Character, AimbotPart, IsWallCheckOff)
 			return nil, nil, false
 		end
 
-		local Status = CanSee(Torso)
+		local Status = CanSee(Torso, Origin)
 		if IsWallCheckOff or Status then
 			return Torso, Screen, Status
 		end
@@ -1031,7 +1054,7 @@ local function GetTargetPart(Character, AimbotPart, IsWallCheckOff)
 				if Head then
 					local Screen, OnScreen = WorldToViewportPoint(Head.Position)
 					if OnScreen then
-						local Status = CanSee(Head)
+						local Status = CanSee(Head, Origin)
 						if IsWallCheckOff or Status then
 							return Head, Screen, Status
 						end
@@ -1041,7 +1064,7 @@ local function GetTargetPart(Character, AimbotPart, IsWallCheckOff)
 				if Torso then
 					local Screen, OnScreen = WorldToViewportPoint(Torso.Position)
 					if OnScreen then
-						local Status = CanSee(Torso)
+						local Status = CanSee(Torso, Origin)
 						if IsWallCheckOff or Status then
 							return Torso, Screen, Status
 						end
@@ -1052,7 +1075,7 @@ local function GetTargetPart(Character, AimbotPart, IsWallCheckOff)
 				if PartA then
 					local Screen, OnScreen = WorldToViewportPoint(PartA.Position)
 					if OnScreen then
-						local Status = CanSee(PartA)
+						local Status = CanSee(PartA, Origin)
 						if IsWallCheckOff or Status then
 							return PartA, Screen, Status
 						end
@@ -1061,7 +1084,7 @@ local function GetTargetPart(Character, AimbotPart, IsWallCheckOff)
 				if PartB then
 					local Screen, OnScreen = WorldToViewportPoint(PartB.Position)
 					if OnScreen then
-						local Status = CanSee(PartB)
+						local Status = CanSee(PartB, Origin)
 						if IsWallCheckOff or Status then
 							return PartB, Screen, Status
 						end
@@ -1086,7 +1109,7 @@ local function GetTargetPart(Character, AimbotPart, IsWallCheckOff)
 			local DeltaX, DeltaY = Screen.X - ScreenCenterX, Screen.Y - ScreenCenterY
 			local Distance = DeltaX * DeltaX + DeltaY * DeltaY
 			if Distance < BestScore then
-				local Status = CanSee(Part)
+				local Status = CanSee(Part, Origin)
 				if IsWallCheckOff or Status then
 					BestScore = Distance
 					BestPart = Part
@@ -1270,7 +1293,7 @@ function SilentAimbotModule:GetClosest()
 			return
 		end
 
-		local Part, Screen = GetTargetPart(Character, AimbotPart, IsWallCheckOff)
+		local Part, Screen = GetTargetPart(Character, AimbotPart, IsWallCheckOff, LocalHeadPosition)
 		if not Part or not Screen then
 			return
 		end
@@ -1576,7 +1599,7 @@ ns__hookfunction(Module.__get("BulletObject"), "new", function(Original, BulletD
 		return Original(BulletData)
 	end
 
-	if IsAimbotInputActive and Aiming.Aimbot_Type == "Silent" then
+	if Aiming.Aimbot_Enabled and Options.Aimbot_Keybind:GetState() and Aiming.Aimbot_Type == "Silent" then
 		local Speed = BulletData.velocity.Magnitude
 		local Direction, Target, Entry, ShotTime = SilentAimbotModule:Solve(BulletData.position, BulletData.acceleration, Speed)
 		if Direction and Target and Entry then
@@ -1857,8 +1880,8 @@ function ESPModule:Clear(Player)
 	end
 end
 
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/nikoladhima/PhantomWare/refs/heads/main/core/Library.luau"))()
-local Window = Library:CreateWindow({Title = "PhantomWare | discord.gg/DwRT2nH93D" .. (Module.ExecutorName and (" | " .. Module.ExecutorName) or ""), TabPadding = 8, MenuFadeTime = 0.2}, 1)
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/430L/PhantomPlus/refs/heads/main/core/Library.luau"))()
+local Window = Library:CreateWindow({Title = "Phantom+" .. (Module.ExecutorName and (" | " .. Module.ExecutorName) or ""), TabPadding = 8, MenuFadeTime = 0.2}, 1)
 local Toggles = Library.Toggles
 local Options = Library.Options
 
@@ -1881,15 +1904,9 @@ local function BuildAimingTab()
 	local Aiming_Aimbot = Tabs.Aiming:AddLeftGroupbox("Aimbot")
 
 	Aiming_Aimbot:AddToggle("Aimbot_Enabled", {Text = "Aimbot", Default = Aiming.Aimbot_Enabled, Callback = function(Value)
-		UpdateTable(Aiming, "Aimbot_Enabled", Value, function(Value2)
-			IsAimbotInputActive = Value2
-		end)
-	end}):AddKeyPicker("Aimbot_Keybind", {Default = Aiming.Aimbot_Keybind, Mode = "Toggle", Text = "Aiming Keybind", SyncToggleState = true, ChangedCallback = function(Keybind)
+		Aiming.Aimbot_Enabled = Value
+	end}):AddKeyPicker("Aimbot_Keybind", {Default = Aiming.Aimbot_Keybind, Mode = "Hold", Text = "Aiming Keybind", SyncToggleState = false, ChangedCallback = function(Keybind)
 		Aiming.Aimbot_Keybind = Keybind
-	end, Callback = function(Value)
-		if type(Value) == "boolean" then
-			Toggles.Aimbot_Enabled:SetValue(Value)
-		end
 	end})
 
 	local AimbotDependencyBox = Aiming_Aimbot:AddDependencyBox():SetupDependencies({{Toggles.Aimbot_Enabled, true}})
@@ -2867,7 +2884,7 @@ end
 local LoadAutoLoad
 local function BuildSettingsTab()
 	local Settings_UserInterface = Tabs.Settings:AddLeftGroupbox("User Interface")
-	LoadAutoLoad = Settings_UserInterface:CreateConfigurationManager("NikoletoScripts/PhantomWare", ".ns", {Aiming, Visuals, Miscellaneous, Settings})
+	LoadAutoLoad = Settings_UserInterface:CreateConfigurationManager("PhantomPlus", ".ns", {Aiming, Visuals, Miscellaneous, Settings})
 	Settings_UserInterface:AddLabel("Menu Toggle Keybind"):AddKeyPicker("Inactive4", {Default = "RightShift", Mode = "Toggle", Text = "Menu Toggle Keybind", Callback = function(Value)
 		Library:Toggle()
 	end})
@@ -2995,7 +3012,7 @@ function ESPModule:Update(LocalHeadPosition)
 
 		if Visuals.ESPVisuals_Chams then
 			local ChamsColor
-			if Visuals.ESPVisuals_ChamsStyle == "Visible" and (CanSee(Head) or CanSee(Torso) or CanSee(LeftArm) or CanSee(RightArm) or CanSee(LeftLeg) or CanSee(RightLeg)) then
+			if Visuals.ESPVisuals_ChamsStyle == "Visible" and (CanSee(Head, LocalHeadPosition) or CanSee(Torso, LocalHeadPosition) or CanSee(LeftArm, LocalHeadPosition) or CanSee(RightArm, LocalHeadPosition) or CanSee(LeftLeg, LocalHeadPosition) or CanSee(RightLeg, LocalHeadPosition)) then
 				ChamsColor = Visuals.ESPVisuals_ChamsVisibleColor
 			else
 				ChamsColor = Visuals.ESPVisuals_ChamsColor
@@ -3146,7 +3163,7 @@ function ESPModule:Update(LocalHeadPosition)
 				end
 
 				if Elements.Visibility then
-					local Visibility = (CanSee(Head) or CanSee(Torso) or CanSee(LeftArm) or CanSee(RightArm) or CanSee(LeftLeg) or CanSee(RightLeg)) and "[Visible]" or "[Hidden]"
+					local Visibility = (CanSee(Head, LocalHeadPosition) or CanSee(Torso, LocalHeadPosition) or CanSee(LeftArm, LocalHeadPosition) or CanSee(RightArm, LocalHeadPosition) or CanSee(LeftLeg, LocalHeadPosition) or CanSee(RightLeg, LocalHeadPosition)) and "[Visible]" or "[Hidden]"
 					Text ..= (Text ~= "" and (" " .. Visibility) or Visibility)
 				end
 
@@ -3196,26 +3213,56 @@ function ESPModule:Update(LocalHeadPosition)
 
 		if Visuals.ESPVisuals_Skeletons then
 			local TorsoCFrame = Torso.CFrame
-			local NeckJoint, HeadSize, HeadCFrame = TorsoCFrame * Vector3.new(0, 1.5, 0), Head.Size, Head.CFrame
-			DrawBone(SkeletonHead, NeckJoint, HeadCFrame.Position + HeadCFrame.UpVector * math.max(math.abs(HeadSize.X), math.abs(HeadSize.Y), math.abs(HeadSize.Z)) * 0.5)
+			local HeadSize, HeadCFrame = Head.Size, Head.CFrame
 
-			local LowerTorso = TorsoCFrame.Position
-			DrawBone(SkeletonSpine, NeckJoint, LowerTorso)
-
-			local LeftShoulder, RightShoulder = TorsoCFrame * Vector3.new(-0.5, 0.5, 0), TorsoCFrame * Vector3.new(0.5, 0.5, 0)
-			DrawBone(SkeletonLeftShoulder, NeckJoint, LeftShoulder)
-			DrawBone(SkeletonRightShoulder, NeckJoint, RightShoulder)
-			DrawBone(SkeletonLeftArm, LeftShoulder, LeftArm.CFrame.Position + (LeftArm.CFrame.Position - LeftShoulder).Unit * 1.5)
-			DrawBone(SkeletonRightArm, RightShoulder, RightArm.CFrame.Position + (RightArm.CFrame.Position - RightShoulder).Unit * 1.5)
-
-			local LeftHip = TorsoCFrame * Vector3.new(-0.5, -0.5, 0)
-			local RightHip = TorsoCFrame * Vector3.new(0.5, -0.5, 0)
-			DrawBone(SkeletonLeftHip, LowerTorso, LeftHip)
-			DrawBone(SkeletonRightHip, LowerTorso, RightHip)
-
+			-- Compute all unique joint world positions
+			local wNeck = TorsoCFrame * Vector3.new(0, 1.5, 0)
+			local wHead = HeadCFrame.Position + HeadCFrame.UpVector * math.max(math.abs(HeadSize.X), math.abs(HeadSize.Y), math.abs(HeadSize.Z)) * 0.5
+			local wLower = TorsoCFrame.Position
+			local wLS = TorsoCFrame * Vector3.new(-0.5, 0.5, 0)
+			local wRS = TorsoCFrame * Vector3.new(0.5, 0.5, 0)
+			local wLE = LeftArm.CFrame.Position + (LeftArm.CFrame.Position - wLS).Unit * 1.5
+			local wRE = RightArm.CFrame.Position + (RightArm.CFrame.Position - wRS).Unit * 1.5
+			local wLH = TorsoCFrame * Vector3.new(-0.5, -0.5, 0)
+			local wRH = TorsoCFrame * Vector3.new(0.5, -0.5, 0)
 			local ThirdPersonObject = Entry._thirdPersonObject
-			DrawBone(SkeletonLeftLeg, LeftHip, ThirdPersonObject._leftFoot.pos)
-			DrawBone(SkeletonRightLeg, RightHip, ThirdPersonObject._rightFoot.pos)
+			local wLF = ThirdPersonObject._leftFoot.pos
+			local wRF = ThirdPersonObject._rightFoot.pos
+
+			-- Project each unique joint ONCE (11 calls instead of 20)
+			local pNeck, onNeck = WorldToViewportPoint(wNeck)
+			local pHead, onHead = WorldToViewportPoint(wHead)
+			local pLower, onLower = WorldToViewportPoint(wLower)
+			local pLS, onLS = WorldToViewportPoint(wLS)
+			local pRS, onRS = WorldToViewportPoint(wRS)
+			local pLE, onLE = WorldToViewportPoint(wLE)
+			local pRE, onRE = WorldToViewportPoint(wRE)
+			local pLH, onLH = WorldToViewportPoint(wLH)
+			local pRH, onRH = WorldToViewportPoint(wRH)
+			local pLF, onLF = WorldToViewportPoint(wLF)
+			local pRF, onRF = WorldToViewportPoint(wRF)
+
+			-- Draw bones using pre-projected screen positions
+			if onNeck and onHead then SetProperty(SkeletonHead, "From", pNeck) SetProperty(SkeletonHead, "To", pHead) SetProperty(SkeletonHead, "Visible", true)
+			else SetProperty(SkeletonHead, "Visible", false) end
+			if onNeck and onLower then SetProperty(SkeletonSpine, "From", pNeck) SetProperty(SkeletonSpine, "To", pLower) SetProperty(SkeletonSpine, "Visible", true)
+			else SetProperty(SkeletonSpine, "Visible", false) end
+			if onNeck and onLS then SetProperty(SkeletonLeftShoulder, "From", pNeck) SetProperty(SkeletonLeftShoulder, "To", pLS) SetProperty(SkeletonLeftShoulder, "Visible", true)
+			else SetProperty(SkeletonLeftShoulder, "Visible", false) end
+			if onNeck and onRS then SetProperty(SkeletonRightShoulder, "From", pNeck) SetProperty(SkeletonRightShoulder, "To", pRS) SetProperty(SkeletonRightShoulder, "Visible", true)
+			else SetProperty(SkeletonRightShoulder, "Visible", false) end
+			if onLS and onLE then SetProperty(SkeletonLeftArm, "From", pLS) SetProperty(SkeletonLeftArm, "To", pLE) SetProperty(SkeletonLeftArm, "Visible", true)
+			else SetProperty(SkeletonLeftArm, "Visible", false) end
+			if onRS and onRE then SetProperty(SkeletonRightArm, "From", pRS) SetProperty(SkeletonRightArm, "To", pRE) SetProperty(SkeletonRightArm, "Visible", true)
+			else SetProperty(SkeletonRightArm, "Visible", false) end
+			if onLower and onLH then SetProperty(SkeletonLeftHip, "From", pLower) SetProperty(SkeletonLeftHip, "To", pLH) SetProperty(SkeletonLeftHip, "Visible", true)
+			else SetProperty(SkeletonLeftHip, "Visible", false) end
+			if onLower and onRH then SetProperty(SkeletonRightHip, "From", pLower) SetProperty(SkeletonRightHip, "To", pRH) SetProperty(SkeletonRightHip, "Visible", true)
+			else SetProperty(SkeletonRightHip, "Visible", false) end
+			if onLH and onLF then SetProperty(SkeletonLeftLeg, "From", pLH) SetProperty(SkeletonLeftLeg, "To", pLF) SetProperty(SkeletonLeftLeg, "Visible", true)
+			else SetProperty(SkeletonLeftLeg, "Visible", false) end
+			if onRH and onRF then SetProperty(SkeletonRightLeg, "From", pRH) SetProperty(SkeletonRightLeg, "To", pRF) SetProperty(SkeletonRightLeg, "Visible", true)
+			else SetProperty(SkeletonRightLeg, "Visible", false) end
 		else
 			SetProperty(SkeletonHead, "Visible", false)
 			SetProperty(SkeletonSpine, "Visible", false)
@@ -3326,7 +3373,7 @@ local ns__mousemoverel = mousemoverel or (function()
 	end
 end)()
 
-local function UpdateAimbot(LocalHeadPosition)
+local function UpdateAimbot(LocalHeadPosition, DeltaTime)
 	if Aiming.Aimbot_Enabled then
 		local ShowFOV = Aiming.Aimbot_ShowFOV
 		if ShowFOV then
@@ -3338,7 +3385,7 @@ local function UpdateAimbot(LocalHeadPosition)
 		end
 
 		local IsLocking = false
-		if IsSpawned and IsAimbotInputActive then
+		if IsSpawned and Aiming.Aimbot_Enabled and Options.Aimbot_Keybind:GetState() then
 			local TargetPart, Target, IsTargetVisible, TargetScreen, ClosestScore = nil, nil, false, nil, math.huge
 			local FOVRadius, IsWallCheckOff = ShowFOV and Aiming.Aimbot_FOVRadius or math.huge, not Aiming.Aimbot_WallCheck
 			local AimbotPart, FOVOrigin = Aiming.Aimbot_Part, ShowFOV and GetFOVOrigin() or ScreenCenter
@@ -3358,7 +3405,7 @@ local function UpdateAimbot(LocalHeadPosition)
 					return
 				end
 
-				local Part, Screen, IsVisible = GetTargetPart(Character, AimbotPart, IsWallCheckOff)
+				local Part, Screen, IsVisible = GetTargetPart(Character, AimbotPart, IsWallCheckOff, LocalHeadPosition)
 				if not Part or not Screen then
 					return
 				end
@@ -3409,11 +3456,13 @@ local function UpdateAimbot(LocalHeadPosition)
 			if TargetPart then
 				if Aiming.Aimbot_Type == "Mouse" and not Library.Toggled then
 					local Smoothness = Aiming.Aimbot_Smoothness
-					ns__mousemoverel((TargetScreen.X - ScreenCenterX) / Smoothness, (TargetScreen.Y - ScreenCenterY) / Smoothness)
+					local Factor = math.min(1, DeltaTime * 60 / Smoothness)
+					ns__mousemoverel((TargetScreen.X - ScreenCenterX) * Factor, (TargetScreen.Y - ScreenCenterY) * Factor)
 				elseif Aiming.Aimbot_Type == "Camera" then
 					local LookVector, Smoothness = (AimbotTargetPart.Position - Camera.CFrame.Position).Unit, Aiming.Aimbot_Smoothness
 					if Smoothness > 1 then
-						LookVector = (Camera.CFrame.LookVector:Lerp(LookVector, 1/Smoothness)).Unit
+						local Alpha = math.clamp(DeltaTime * 60 / Smoothness, 0, 1)
+						LookVector = (Camera.CFrame.LookVector:Lerp(LookVector, Alpha)).Unit
 					end
 
 					local ActiveCamera = GetActiveCamera()
@@ -3494,28 +3543,39 @@ function ESPModule:UpdateGrenades(Now)
 	end
 end
 
+local LastTrajectoryInput = {Position = Vector3.zero, LookVector = Vector3.zero}
+
 function GrenadeModule:UpdateTrajectory()
 	if Visuals.Combat_GrenadeTrajectory and IsSpawned then
 		local ActiveWeapon = GetActiveWeapon()
 		if ActiveWeapon and ActiveWeapon:getWeaponType() == "Grenade" then
 			local WeaponData = ActiveWeapon._weaponData
 			if WeaponData then
+				-- Throttle: skip recompute if camera hasn't moved meaningfully
+				local CamCF = Camera.CFrame
+				local CamPos = CamCF.Position
+				local CamLook = CamCF.LookVector
+				if (CamPos - LastTrajectoryInput.Position).Magnitude < 0.01 and CamLook:Dot(LastTrajectoryInput.LookVector) > 0.9999 then
+					return
+				end
+				LastTrajectoryInput.Position = CamPos
+				LastTrajectoryInput.LookVector = CamLook
+
 				local LocalPosition = GetLocalPosition()
-				local Velocity = (Camera.CFrame * CFrame.Angles(math.rad(WeaponData.throwangle or 0), 0, 0)).LookVector * (
+				local Velocity = (CamCF * CFrame.Angles(math.rad(WeaponData.throwangle or 0), 0, 0)).LookVector * (
 					WeaponData.throwspeed or 100
 				) + (GetLocalCharacter():getRealRootPart().AssemblyLinearVelocity or Vector3.zero)
 
-				local CameraPosition = Camera.CFrame.Position
 				local TargetPosition = ActiveWeapon._mainPart
 				TargetPosition = TargetPosition and TargetPosition.Position or LocalPosition
 
-				local StartHit = workspace:Raycast(CameraPosition, TargetPosition - CameraPosition, GrenadeRaycastParams)
+				local StartHit = workspace:Raycast(CamPos, TargetPosition - CamPos, GrenadeRaycastParams)
 				local Position = StartHit and (StartHit.Position + StartHit.Normal * 0.01) or TargetPosition
 
 				local Points, Bounces, Impact, Gravity = {Position}, 0, nil, Vector3.new(0, -80, 0)
 				local SegmentStart, SegmentVelocity, SegmentTime, LastPosition, RaycastOffset, SegmentAcceleration, LastBounce = Position, Velocity, 0, Position, Vector3.zero, Gravity, false
 				local MaxBounces, Elasticity, Friction = Visuals.Combat_GrenadeTrajectoryBounces, ActiveWeapon._bounceElasticity or 0.2, ActiveWeapon._frictionConstant or 0.08
-				for _ = 1, 240 do
+				for _ = 1, 150 do
 					SegmentTime += RaycastStep
 					local NextPosition = SegmentStart + SegmentVelocity * SegmentTime + 0.5 * SegmentAcceleration * SegmentTime * SegmentTime
 					local Hit = workspace:Raycast(LastPosition, NextPosition - LastPosition - 0.05 * RaycastOffset, GrenadeRaycastParams)
@@ -3592,6 +3652,18 @@ function GrenadeModule:UpdateTrajectory()
 	for _,Segment in ipairs(GrenadeModule.Segments) do
 		Segment.Beam.Transparency = NumberSequence.new(1)
 	end
+
+	-- Cleanup excess segment instances to prevent memory leak
+	while #GrenadeModule.Segments > 60 do
+		local Segment = table.remove(GrenadeModule.Segments)
+		Segment.Beam:Destroy()
+		Segment.Attachment0:Destroy()
+		Segment.Attachment1:Destroy()
+	end
+
+	-- Reset trajectory cache so it recomputes when grenade is next held
+	LastTrajectoryInput.Position = Vector3.zero
+	LastTrajectoryInput.LookVector = Vector3.zero
 
 	GrenadeModule.Marker.Visible = false
 end
@@ -4143,7 +4215,7 @@ if RemoteEvent then
 	end)
 end
 
-RunService.PreRender:Connect(function()
+RunService.PreRender:Connect(function(DeltaTime)
 	CanSeeFrameCounter += 1
 	local PreviousFrame = CanSeeFrameCounter - 1
 	for Part, Entry in next, CanSeeCache do
@@ -4168,7 +4240,7 @@ RunService.PreRender:Connect(function()
 	local Now, LocalHeadPosition = os.clock(), GetLocalPosition()
 	HitMarkerModule:Update(Now)
 	BulletAcceleration, BulletLifeTime = PublicSettings.bulletAcceleration, PublicSettings.bulletLifeTime
-	UpdateAimbot(LocalHeadPosition)
+	UpdateAimbot(LocalHeadPosition, DeltaTime)
 
 	if Visuals.ESPVisuals_MasterEnabled then
 		ESPModule:Update(LocalHeadPosition)
@@ -4272,6 +4344,7 @@ NetworkClient.send = function(self, Packet, ...)
 		return NetworkClientSend(self, Packet, ...)
 	elseif Packet == "spawn" then
 		GlobalTicketCounter, TicketAddition, IsSpawned, ThirdPersonModule.IsSpawned = 0, 0, true, true
+		table.clear(TicketCache)
 		return NetworkClientSend(self, Packet, ...)
 	end
 
@@ -4313,7 +4386,7 @@ NetworkClient.send = function(self, Packet, ...)
 			Bullets[Index][2] += TicketAddition
 		end
 
-		if IsAimbotInputActive and Aiming.Aimbot_Type == "Silent" then
+		if Aiming.Aimbot_Enabled and Options.Aimbot_Keybind:GetState() and Aiming.Aimbot_Type == "Silent" then
 			local Now = os.clock()
 			if LastSilent.Target and (Now - LastSilent.Frame < 0.1) then
 				local Direction = LastSilent.Velocity.Unit
@@ -4391,15 +4464,3 @@ end
 
 LoadAutoLoad()
 Library:Toggle()
-
-pcall(function()
-	local Request = not isfile("NikoletoScripts/PhantomWare/Cache/Invite.nscache") and (httprequest or http_request or request)
-	if Request then
-		if pcall(Request, {
-			Url = "http://127.0.0.1:6463/rpc?v=1",  Method = "POST", Headers = {["Content-Type"] = "application/json", Origin = "https://discord.com"},
-			Body = HttpService:JSONEncode({cmd = "INVITE_BROWSER", nonce = HttpService:GenerateGUID(false), args = {code = "DwRT2nH93D"}})
-		}) then
-			writefile("NikoletoScripts/PhantomWare/Cache/Invite.nscache", "DwRT2nH93D")
-		end
-	end
-end)
